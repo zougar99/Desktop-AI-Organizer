@@ -6,9 +6,11 @@ Features: Sidebar, Charts, Quick Actions, Search, Undo, Export, Desktop Watcher.
 
 import os
 import sys
+import json
 import threading
 import math
 import io
+import webbrowser
 from datetime import datetime
 
 import customtkinter as ctk
@@ -55,8 +57,18 @@ from desktop_analyzer import (
 
 # ===================== THEME =====================
 
-ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
+
+
+def _settings_path():
+    base = os.path.join(os.path.expanduser("~"), ".desktop_ai_organizer")
+    return os.path.join(base, "settings.json")
+
+
+DEFAULT_SETTINGS = {
+    "appearance": "dark",
+    "ui_scale": 1.0,
+}
 
 C = {
     "bg":           "#0d1117",
@@ -101,6 +113,8 @@ class DesktopAIOrganizer(ctk.CTk):
         self.watcher = None
         self.watcher_events = []
         self.current_page = "dashboard"
+        self._settings = self._load_settings()
+        self._apply_settings_from_disk()
 
         self._build_layout()
         self._show_page("dashboard")
@@ -144,6 +158,8 @@ class DesktopAIOrganizer(ctk.CTk):
             ("sysinfo",      "System Info"),
             ("quick",        "Quick Actions"),
             ("watcher",      "Live Monitor"),
+            ("settings",     "Settings"),
+            ("about",        "About"),
         ]
 
         nav_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
@@ -199,6 +215,54 @@ class DesktopAIOrganizer(ctk.CTk):
         self.content = ctk.CTkFrame(self, fg_color=C["bg"], corner_radius=0)
         self.content.pack(side="right", fill="both", expand=True)
 
+    def _load_settings(self):
+        s = DEFAULT_SETTINGS.copy()
+        path = _settings_path()
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            if os.path.isfile(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+                for k in s:
+                    if k in loaded:
+                        s[k] = loaded[k]
+        except Exception:
+            pass
+        app = str(s.get("appearance", "dark")).lower()
+        if app not in ("dark", "light", "system"):
+            s["appearance"] = "dark"
+        else:
+            s["appearance"] = app
+        try:
+            scale = float(s.get("ui_scale", 1.0))
+        except (TypeError, ValueError):
+            scale = 1.0
+        s["ui_scale"] = max(0.8, min(1.25, scale))
+        return s
+
+    def _save_settings_to_disk(self):
+        path = _settings_path()
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(self._settings, f, indent=2)
+        except Exception as ex:
+            messagebox.showerror("Settings", "Could not save settings:\n{}".format(ex))
+            return False
+        return True
+
+    def _apply_settings_from_disk(self):
+        ctk.set_appearance_mode(self._settings.get("appearance", "dark"))
+        scale = float(self._settings.get("ui_scale", 1.0))
+        try:
+            ctk.set_widget_scaling(scale)
+        except Exception:
+            pass
+        try:
+            ctk.set_window_scaling(scale)
+        except Exception:
+            pass
+
     def _highlight_nav(self, key):
         """Highlight active nav button."""
         for k, btn in self.nav_buttons.items():
@@ -229,6 +293,8 @@ class DesktopAIOrganizer(ctk.CTk):
             "sysinfo": self._page_sysinfo,
             "quick": self._page_quick_actions,
             "watcher": self._page_watcher,
+            "settings": self._page_settings,
+            "about": self._page_about,
         }
         pages.get(page, self._page_dashboard)()
 
@@ -684,6 +750,127 @@ class DesktopAIOrganizer(ctk.CTk):
                      text_color=color, width=90).pack(side="left")
         ctk.CTkLabel(row, text=evt["name"], font=ctk.CTkFont(size=12), text_color=C["text"]).pack(side="left", padx=8)
         ctk.CTkLabel(row, text="({})".format(evt["item_type"]), font=ctk.CTkFont(size=11), text_color=C["text3"]).pack(side="left")
+
+    # ======================== SETTINGS & ABOUT ========================
+
+    def _page_settings(self):
+        self._make_header(self.content, "Settings", "Appearance and interface scale")
+        scroll = self._make_scroll(self.content)
+
+        card = ctk.CTkFrame(scroll, fg_color=C["card"], corner_radius=12)
+        card.pack(fill="x", pady=(0, 10))
+        ctk.CTkLabel(
+            card, text="Appearance",
+            font=ctk.CTkFont(size=15, weight="bold"), text_color=C["blue"],
+        ).pack(anchor="w", padx=15, pady=(12, 6))
+
+        row1 = ctk.CTkFrame(card, fg_color="transparent")
+        row1.pack(fill="x", padx=15, pady=4)
+        ctk.CTkLabel(
+            row1, text="Theme mode", font=ctk.CTkFont(size=13),
+            text_color=C["text2"], width=130, anchor="w",
+        ).pack(side="left")
+        app_var = ctk.StringVar(value=self._settings.get("appearance", "dark"))
+        ctk.CTkOptionMenu(
+            row1, values=["dark", "light", "system"], variable=app_var,
+            width=200, height=32, corner_radius=8,
+            fg_color=C["border"], button_color=C["blue"], button_hover_color="#4090e0",
+        ).pack(side="left")
+
+        row2 = ctk.CTkFrame(card, fg_color="transparent")
+        row2.pack(fill="x", padx=15, pady=(12, 8))
+        scale_val = float(self._settings.get("ui_scale", 1.0))
+        scale_lbl = ctk.CTkLabel(
+            row2, text="UI scale: {:.0f}%".format(scale_val * 100),
+            font=ctk.CTkFont(size=13), text_color=C["text2"], width=130, anchor="w",
+        )
+        scale_lbl.pack(side="left")
+        scale_var = ctk.DoubleVar(value=scale_val)
+
+        def _on_scale(v):
+            scale_lbl.configure(text="UI scale: {:.0f}%".format(float(v) * 100))
+
+        slider = ctk.CTkSlider(
+            row2, from_=0.8, to=1.25, number_of_steps=9,
+            variable=scale_var, command=_on_scale,
+            width=320, height=16, progress_color=C["blue"], fg_color=C["border"],
+        )
+        slider.pack(side="left", padx=(0, 10))
+
+        btn_row = ctk.CTkFrame(card, fg_color="transparent")
+        btn_row.pack(fill="x", padx=15, pady=(4, 14))
+
+        def _save_settings():
+            self._settings["appearance"] = app_var.get()
+            self._settings["ui_scale"] = float(scale_var.get())
+            self._apply_settings_from_disk()
+            if self._save_settings_to_disk():
+                messagebox.showinfo("Settings", "Settings saved.")
+
+        ctk.CTkButton(
+            btn_row, text="Save settings", font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=C["green"], hover_color="#2ea043", height=36, corner_radius=8,
+            command=_save_settings,
+        ).pack(side="left")
+
+        ctk.CTkLabel(
+            scroll,
+            text="Settings file: {}".format(_settings_path()),
+            font=ctk.CTkFont(size=11), text_color=C["text3"], anchor="w", justify="left",
+        ).pack(anchor="w", padx=20, pady=(8, 4))
+
+    def _page_about(self):
+        self._make_header(self.content, "About", "Desktop AI Organizer")
+        scroll = self._make_scroll(self.content)
+
+        card = ctk.CTkFrame(scroll, fg_color=C["card"], corner_radius=12)
+        card.pack(fill="x", pady=(0, 10))
+        ctk.CTkLabel(
+            card, text="Desktop AI Organizer",
+            font=ctk.CTkFont(size=18, weight="bold"), text_color=C["text"],
+        ).pack(pady=(18, 4))
+        ctk.CTkLabel(
+            card, text="Version 3.0",
+            font=ctk.CTkFont(size=13), text_color=C["text2"],
+        ).pack()
+        ctk.CTkLabel(
+            card,
+            text="A Windows desktop app to analyze clutter, organize files, find duplicates, "
+                 "batch rename, clean up, and monitor changes—with charts and smart suggestions.",
+            font=ctk.CTkFont(size=13), text_color=C["text2"],
+            wraplength=640, justify="center",
+        ).pack(padx=24, pady=14)
+
+        ctk.CTkLabel(
+            card, text="Maintainer",
+            font=ctk.CTkFont(size=14, weight="bold"), text_color=C["purple"],
+        ).pack(anchor="w", padx=18, pady=(6, 4))
+        ctk.CTkLabel(
+            card, text="WerList99 — developer & tech blogger",
+            font=ctk.CTkFont(size=13), text_color=C["text"],
+        ).pack(anchor="w", padx=18)
+
+        links = ctk.CTkFrame(card, fg_color="transparent")
+        links.pack(fill="x", padx=15, pady=(14, 18))
+        link_defs = [
+            ("Telegram @werlist99", "https://t.me/werlist99"),
+            ("GitHub — zougar99", "https://github.com/zougar99"),
+            ("Tech blog", "https://werlist99.blogspot.com/"),
+            ("Firefox add-ons (AMO)", "https://addons.mozilla.org/en-US/firefox/user/19705561/"),
+            ("Extensions hub", "https://extefw99.blogspot.com/"),
+        ]
+        for label, url in link_defs:
+            ctk.CTkButton(
+                links, text=label, font=ctk.CTkFont(size=13),
+                fg_color=C["border"], hover_color=C["btn_hover"], text_color=C["text"],
+                height=36, corner_radius=8, anchor="w",
+                command=lambda u=url: webbrowser.open(u),
+            ).pack(fill="x", pady=3)
+
+        ctk.CTkLabel(
+            card, text="License: MIT",
+            font=ctk.CTkFont(size=12), text_color=C["text3"],
+        ).pack(pady=(0, 16))
 
     # ======================== DUPLICATE FINDER PAGE ========================
 

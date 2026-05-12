@@ -6,6 +6,28 @@ A powerful Windows desktop application that analyzes, organizes, and manages you
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+## About
+
+Built and maintained by **WerList99** — developer focused on practical Windows tools, Python desktop apps, and clean UX.
+
+```yaml
+maintainer: WerList99
+connect:
+  telegram: "@werlist99 — https://t.me/werlist99"
+  github: "https://github.com/zougar99"
+  tech_blog: "https://werlist99.blogspot.com/"
+  firefox_addons_mozilla_amo: "https://addons.mozilla.org/en-US/firefox/user/19705561/"
+  extensions_hub: "https://extefw99.blogspot.com/"
+focus:
+  - Desktop automation & file workflows
+  - Algorithms & data structures (performance-aware tooling)
+  - Privacy-minded software
+```
+
+**Reach the maintainer:** [Telegram @werlist99](https://t.me/werlist99) · [GitHub @zougar99](https://github.com/zougar99) · [Tech blog](https://werlist99.blogspot.com/) · [Firefox add-ons (AMO)](https://addons.mozilla.org/en-US/firefox/user/19705561/) · [Extensions hub](https://extefw99.blogspot.com/)
+
+---
+
 ## Features
 
 ### Core Analysis
@@ -45,7 +67,7 @@ A powerful Windows desktop application that analyzes, organizes, and manages you
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/Desktop-AI-Organizer.git
+   git clone https://github.com/zougar99/Desktop-AI-Organizer.git
    cd Desktop-AI-Organizer
    ```
 
