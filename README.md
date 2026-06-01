@@ -1,4 +1,4 @@
-# Desktop AI Organizer v3.0
+# 🛠️ Desktop AI Organizer v3.0
 
 A powerful Windows desktop application that analyzes, organizes, and manages your desktop files with AI-powered insights and a suite of power tools.
 
